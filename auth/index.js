@@ -29,6 +29,7 @@ router.post('/signup', (req, res, next) => {
 
 
                             User.create(user).then(id => {
+                              setUserIdCookie(req,res, id);
                                 res.json({
                                     id,
                                     message: 'Success'
@@ -46,20 +47,26 @@ router.post('/signup', (req, res, next) => {
     }
 });
 
+function setUserIdCookie(req,res,id) {
+  const isSecure = req.app.get('env'!= 'development')
+  res.cookie('user_id', id, {
+    httpOnly: true,
+    signed: true,
+    secure: isSecure
+  });
+}
+
 router.post('/login', (req, res, next) => {
     if (validUser(req.body)) {
         User.getOneByEmail(req.body.email)
             .then((user) => {
               if(user) {
                 bcrypt.compare(req.body.password, user.password).then((result)=>{
+                  console.log(result);
                   if(result===true) {
-                    const isSecure = req.app.get('env'!= 'development')
-                    res.cookie('user_id', user.id, {
-                      httpOnly: true,
-                      signed: true,
-                      secure: isSecure
-                    });
+                    setUserIdCookie(req,res, user.id);
                     res.json({
+                      id: user.id,
                       message: 'Logged In!'
                     });
                   } else next(new Error('Wrong Password'))
@@ -69,5 +76,12 @@ router.post('/login', (req, res, next) => {
             })
 
     } else next(new Error('Invalid Login'))
+});
+
+router.get('/logout', (req,res)=>{
+  res.clearCookie('user_id');
+  res.json({
+    message: 'LoggedOut'
+  })
 });
 module.exports = router;
